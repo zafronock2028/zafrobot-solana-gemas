@@ -6,7 +6,7 @@ def create_table():
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS tokens (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
+        name TEXT,
         price REAL,
         volume REAL,
         tx_count INTEGER,
