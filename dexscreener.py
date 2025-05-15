@@ -1,45 +1,42 @@
 # dexscreener.py
 import requests
 import time
+from config import DEXSCREENER_API_URL, SCAN_INTERVAL
 
-def get_filtered_tokens():
-    current_time_ms = int(time.time() * 1000)
-    max_age_ms = 3 * 24 * 60 * 60 * 1000  # 3 días en milisegundos
-    max_volume = 1000000
-    min_tx_count = 5000
-
+def scan_tokens():
     try:
         response = requests.get(DEXSCREENER_API_URL)
         response.raise_for_status()
-        data = response.json()
+        return _filter_tokens(response.json())
     except Exception as e:
-        print(f"Error fetching data: {e}")
+        print(f"Error Dexscreener: {e}")
         return []
 
-    filtered_tokens = []
+def _filter_tokens(data):
+    current_time = int(time.time() * 1000)
+    valid_tokens = []
+    
     for pair in data.get('pairs', []):
         if pair.get('chainId') != 'solana':
             continue
-
-        created_at = pair.get('pairCreatedAt', 0)
-        if (current_time_ms - created_at) > max_age_ms:
+            
+        if (current_time - pair.get('pairCreatedAt', 0)) > 259200000:  # 3 días
             continue
-
-        volume = float(pair.get('volume', {}).get('h24', 0))
-        if volume >= max_volume:
+            
+        volume = pair.get('volume', {}).get('h24', 0)
+        if volume >= 1000000:
             continue
-
-        tx_data = pair.get('txns', {}).get('h24', {})
-        tx_count = tx_data.get('buys', 0) + tx_data.get('sells', 0)
-        if tx_count < min_tx_count:
-            continue
-
-        filtered_tokens.append({
-            'name': pair.get('baseToken', {}).get('name', 'Unknown'),
-            'price': pair.get('priceUsd', 0),
-            'volume': volume,
-            'tx_count': tx_count,
-            'url': pair.get('url', '')
-        })
-
-    return filtered_tokens
+            
+        tx_count = pair.get('txns', {}).get('h24', {}).get('buys', 0) + \
+                 pair.get('txns', {}).get('h24', {}).get('sells', 0)
+        
+        if tx_count >= 5000:
+            valid_tokens.append({
+                'name': pair.get('baseToken', {}).get('name', 'Unknown'),
+                'price': pair.get('priceUsd', 0),
+                'volume': volume,
+                'tx_count': tx_count,
+                'url': pair.get('url', '')
+            })
+    
+    return valid_tokens
