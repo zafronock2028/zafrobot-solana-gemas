@@ -3,35 +3,33 @@ import threading
 import time
 import os
 from flask import Flask
-from dexscreener import get_filtered_tokens
+from dexscreener import scan_tokens
 from db import create_table, insert_token
-from telegram_bot import send_alert
+from telegram_bot import telegram_bot
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return '🔍 Bot de detección de gemas Solana en funcionamiento'
+    return '🔍 Bot Solana Gem Scanner - Online'
 
 def scanner_loop():
     create_table()
     while True:
         try:
-            tokens = get_filtered_tokens()
+            tokens = scan_tokens()
             for token in tokens:
                 if insert_token(token):
-                    send_alert(token)
+                    telegram_bot.send_alert(token)
         except Exception as e:
-            print(f"Error en el escaneo: {e}")
-        time.sleep(SCAN_INTERVAL)
+            print(f"Error en scanner: {e}")
+        time.sleep(30)
 
 if __name__ == '__main__':
-    # Iniciar hilos
+    # Iniciar componentes
     threading.Thread(target=scanner_loop, daemon=True).start()
+    threading.Thread(target=telegram_bot.run, daemon=True).start()
     
-    from telegram_bot import start_bot
-    threading.Thread(target=start_bot, daemon=True).start()
-
-    # Iniciar servidor web
+    # Servidor web
     port = int(os.environ.get("PORT", 10000))
     app.run(host='0.0.0.0', port=port)
