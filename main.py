@@ -5,7 +5,7 @@ import os
 from flask import Flask
 from dexscreener import scan_tokens
 from db import create_table, insert_token
-from telegram_bot import telegram_bot
+from telegram_bot import TelegramBot
 
 app = Flask(__name__)
 
@@ -20,7 +20,7 @@ def scanner_loop():
             tokens = scan_tokens()
             for token in tokens:
                 if insert_token(token):
-                    telegram_bot.send_alert(token)
+                    TelegramBot().send_alert(token)
         except Exception as e:
             print(f"Error en scanner: {e}")
         time.sleep(30)
@@ -28,7 +28,7 @@ def scanner_loop():
 if __name__ == '__main__':
     # Iniciar componentes
     threading.Thread(target=scanner_loop, daemon=True).start()
-    threading.Thread(target=telegram_bot.run, daemon=True).start()
+    threading.Thread(target=TelegramBot().run, daemon=True).start()
     
     # Servidor web
     port = int(os.environ.get("PORT", 10000))
