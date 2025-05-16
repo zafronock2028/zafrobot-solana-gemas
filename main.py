@@ -1,7 +1,7 @@
 # main.py
-import os
 import threading
 import time
+import os
 from flask import Flask
 from dexscreener import scan_tokens
 from db import create_table, insert_token
@@ -26,8 +26,8 @@ def scanner_loop():
         time.sleep(30)
 
 if __name__ == '__main__':
+    # Iniciar solo el scanner en segundo plano
     threading.Thread(target=scanner_loop, daemon=True).start()
-    threading.Thread(target=telegram_bot.run, daemon=True).start()
 
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host='0.0.0.0', port=port)
+    # Iniciar el bot en el hilo principal (necesario para asyncio)
+    telegram_bot.run()
