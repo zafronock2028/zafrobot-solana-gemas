@@ -20,7 +20,12 @@ async def run_bot_async():
     app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("estado", estado))
-    await app.run_polling()
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling()
+    # Mantén el bot activo sin cerrar el loop
+    while True:
+        await asyncio.sleep(3600)
 
 def run_bot():
     asyncio.run(run_bot_async())
