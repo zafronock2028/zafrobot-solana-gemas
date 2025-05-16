@@ -1,5 +1,6 @@
-import os
-
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
-PUMPFUN_WS_URL = "wss://pump.fun/ws"
+# Filtros para detectar gemas reales
+MIN_LIQUIDITY = 2000
+MAX_LIQUIDITY = 75000
+MIN_VOLUME = 15000
+MIN_HOLDERS = 50
+MAX_AGE_MINUTES = 35
