@@ -9,18 +9,12 @@ CHAT_ID = int(os.getenv("CHAT_ID"))
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id == CHAT_ID:
-        await context.bot.send_message(
-            chat_id=CHAT_ID,
-            text="🚀 Bot activo\nComandos:\n/start - Bienvenida\n/estado - Tokens detectados"
-        )
+        await context.bot.send_message(chat_id=CHAT_ID, text="🚀 Bot activo\nComandos:\n/start - Bienvenida\n/estado - Tokens detectados")
 
 async def estado(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id == CHAT_ID:
         count = contar_tokens()
-        await context.bot.send_message(
-            chat_id=CHAT_ID,
-            text=f"📊 Tokens guardados en la base de datos: {count}"
-        )
+        await context.bot.send_message(chat_id=CHAT_ID, text=f"📊 Tokens guardados en la base de datos: {count}")
 
 async def run_bot_async():
     app = Application.builder().token(BOT_TOKEN).build()
@@ -37,14 +31,11 @@ def run_bot():
 
 def send_alert(token):
     bot = Bot(token=BOT_TOKEN)
-    msg = (
-        f"🚨 Joya detectada: {token['name']}\n"
-        f"💵 Precio: ${token['price']}\n"
-        f"📈 Volumen: ${token['volume']}\n"
-        f"👥 Holders: {token['holders']}\n"
-        f"🔗 Enlace: {token['url']}"
-    )
+    msg = f"🚨 Joya detectada: {token['name']}\n💵 Precio: ${token['price']}\n📈 Volumen: ${token['volume']}\n👥 Holders: {token['holders']}\n🔗 Enlace: {token['url']}"
+    bot.send_message(chat_id=CHAT_ID, text=msg)
+
+def notificar_gema(token):
     try:
-        bot.send_message(chat_id=CHAT_ID, text=msg)
+        send_alert(token)
     except Exception as e:
-        print(f"[❌] Error enviando mensaje a Telegram: {e}")
+        print(f"[❌] Error notificando gema: {e}")
