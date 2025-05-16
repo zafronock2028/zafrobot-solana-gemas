@@ -1,46 +1,56 @@
-import json
+# pump_scanner.py
 import asyncio
 import websockets
-from config import PUMPFUN_WS_URL
+import json
+import time
 from telegram_bot import send_alert
 from db import save_token
 
-def is_valid_token(data):
+# Filtros de validación
+MIN_LIQUIDITY = 2000
+MAX_LIQUIDITY = 75000
+MIN_VOLUME = 15000
+MIN_HOLDERS = 50
+MAX_AGE_MINUTES = 35
+
+def is_valid_token(token):
     try:
-        price = float(data.get("priceUsd", 0))
-        volume = float(data.get("volume24h", 0))
-        tx_count = int(data.get("txCount", 0))
-        age = int(data.get("age", 0))
-        holders = int(data.get("holders", 0))
-        market_cap = float(data.get("marketCap", 0))
+        liquidity = float(token.get("liquidity", 0))
+        volume = float(token.get("volume", 0))
+        holders = int(token.get("holders", 0))
+        created_at = int(token.get("created_at", time.time() * 1000))
+        age_minutes = (int(time.time() * 1000) - created_at) / 60000
+
         if (
-            2000 <= volume <= 75000 and
-            50 <= holders and
-            age <= 2100 and
-            3000 <= market_cap <= 80000
+            MIN_LIQUIDITY <= liquidity <= MAX_LIQUIDITY and
+            volume >= MIN_VOLUME and
+            holders >= MIN_HOLDERS and
+            age_minutes <= MAX_AGE_MINUTES
         ):
             return True
-        return False
-    except:
-        return False
+    except Exception as e:
+        print(f"[❌] Error al validar token: {e}")
+    return False
 
-async def scan_tokens():
-    async with websockets.connect(PUMPFUN_WS_URL) as ws:
-        while True:
-            msg = await ws.recv()
-            data = json.loads(msg)
+async def start_scanner():
+    uri = "wss://pumpportal.fun/api/data"
+    async with websockets.connect(uri) as websocket:
+        await websocket.send(json.dumps({ "method": "subscribeNewToken" }))
+        print("[✅] Conectado al WebSocket de Pump.fun")
 
-            if isinstance(data, dict) and data.get("type") == "new_token":
-                token = data.get("token", {})
+        async for message in websocket:
+            data = json.loads(message)
+            if data.get("method") == "newToken":
+                token = data.get("data", {})
                 if is_valid_token(token):
+                    print(f"[🚀] Joya detectada: {token.get('name')}")
                     save_token(token)
                     send_alert({
                         "name": token.get("name", "Unknown"),
-                        "price": float(token.get("priceUsd", 0)),
-                        "volume": float(token.get("volume24h", 0)),
-                        "tx_count": int(token.get("txCount", 0)),
-                        "url": f"https://dexscreener.com/solana/{token.get('address')}"
+                        "price": token.get("price", 0),
+                        "volume": token.get("volume", 0),
+                        "tx_count": token.get("txCount", 0),
+                        "url": token.get("url", "https://pump.fun")
                     })
-
-def start_scanner():
-    asyncio.run(scan_tokens())
+                else:
+                    print(f"[⛔] Token descartado: {token.get('name')}")
