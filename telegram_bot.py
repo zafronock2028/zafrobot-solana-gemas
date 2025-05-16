@@ -1,6 +1,7 @@
-from telegram import Update, Bot
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import asyncio
 import os
+from telegram import Update, Bot
+from telegram.ext import Application, CommandHandler, ContextTypes
 from db import get_token_count
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -15,11 +16,14 @@ async def estado(update: Update, context: ContextTypes.DEFAULT_TYPE):
         count = get_token_count()
         await context.bot.send_message(chat_id=CHAT_ID, text=f"📊 Tokens guardados en la base de datos: {count}")
 
-def run_bot():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+async def run_bot_async():
+    app = Application.builder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("estado", estado))
-    app.run_polling()
+    await app.run_polling()
+
+def run_bot():
+    asyncio.run(run_bot_async())
 
 def send_alert(token):
     bot = Bot(token=BOT_TOKEN)
