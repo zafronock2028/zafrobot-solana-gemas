@@ -1,59 +1,35 @@
+# main.py
+
 import os
-import logging
-from telegram import Update, Bot
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from config import TELEGRAM_TOKEN, CHAT_ID
-from db import get_token_count
+import time
+import threading
+from flask import Flask
+from config import SCAN_INTERVAL
+from dexscreener import scan_tokens
+from db import create_table, insert_token
+from telegram_bot import telegram_bot  # este importa tu clase actual
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+app = Flask(__name__)
 
-class TelegramBot:
-    def __init__(self):
-        self.bot = Bot(token=TELEGRAM_TOKEN)
-        self.app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-        self._setup_handlers()
-        logger.info("Bot de Telegram inicializado")
+@app.route('/')
+def home():
+    return '✅ Bot de gemas Solana está corriendo'
 
-    def _setup_handlers(self):
-        self.app.add_handler(CommandHandler("start", self._start))
-        self.app.add_handler(CommandHandler("estado", self._status))
-
-    async def _start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        await update.message.reply_text(
-            "🚀 Bot activo\nComandos:\n/start - Bienvenida\n/estado - Ver tokens guardados"
-        )
-
-    async def _status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        count = get_token_count()
-        await update.message.reply_text(
-            f'📊 Tokens guardados en la base de datos: {count}'
-        )
-
-    def send_alert(self, token_data):
+def scanner_loop():
+    create_table()
+    while True:
         try:
-            message = (
-                f"🚀 *Nuevo token detectado!*\n\n"
-                f"• Nombre: `{token_data['name']}`\n"
-                f"• Precio: ${token_data['price']:.8f}\n"
-                f"• Volumen: ${token_data['volume']:,.2f}\n"
-                f"• Transacciones: {token_data['tx_count']}\n"
-                f"[Ver en Dexscreener]({token_data['url']})"
-            )
-            self.bot.send_message(
-                chat_id=CHAT_ID,
-                text=message,
-                parse_mode="Markdown",
-                disable_web_page_preview=True
-            )
+            tokens = scan_tokens()
+            for token in tokens:
+                if insert_token(token):
+                    telegram_bot.send_alert(token)
         except Exception as e:
-            logger.error(f"Error al enviar alerta: {e}")
+            print(f"❌ Error en escaneo: {e}")
+        time.sleep(SCAN_INTERVAL)
 
-    def run(self):
-        self.app.run_polling()
+if __name__ == '__main__':
+    threading.Thread(target=scanner_loop, daemon=True).start()
+    threading.Thread(target=telegram_bot.run, daemon=True).start()
 
-# Instancia lista para importar
-telegram_bot = TelegramBot()
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
