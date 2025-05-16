@@ -1,43 +1,27 @@
-import logging
-from telegram import Bot, Update
-from telegram.ext import Updater, CommandHandler, CallbackContext
-from config import TELEGRAM_TOKEN, CHAT_ID
+from telegram import Update, Bot
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+import os
 from db import get_token_count
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-bot = Bot(token=TELEGRAM_TOKEN)
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+CHAT_ID = int(os.getenv("CHAT_ID"))
 
-def start(update: Update, context: CallbackContext):
-    update.message.reply_text(
-        "🚀 Bot activo\nComandos:\n/start - Bienvenida\n/estado - Tokens detectados"
-    )
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.id == CHAT_ID:
+        await context.bot.send_message(chat_id=CHAT_ID, text="🚀 Bot activo\nComandos:\n/start - Bienvenida\n/estado - Tokens detectados")
 
-def estado(update: Update, context: CallbackContext):
-    count = get_token_count()
-    update.message.reply_text(
-        f"📊 Tokens guardados en la base de datos: {count}"
-    )
+async def estado(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.id == CHAT_ID:
+        count = get_token_count()
+        await context.bot.send_message(chat_id=CHAT_ID, text=f"📊 Tokens guardados en la base de datos: {count}")
+
+def run_bot():
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("estado", estado))
+    app.run_polling()
 
 def send_alert(token):
-    try:
-        message = (
-            f"🚀 *Nuevo token detectado!*\n\n"
-            f"*Nombre:* `{token['name']}`\n"
-            f"*Precio:* ${token['price']:.8f}\n"
-            f"*Volumen:* ${token['volume']:,}\n"
-            f"*Transacciones:* {token['tx_count']}\n"
-            f"[Ver en Dexscreener]({token['url']})"
-        )
-        bot.send_message(chat_id=CHAT_ID, text=message, parse_mode="Markdown", disable_web_page_preview=True)
-    except Exception as e:
-        logger.error(f"Error enviando alerta: {e}")
-
-def start_bot():
-    updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
-    dp = updater.dispatcher
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("estado", estado))
-    logger.info("Bot Telegram listo")
-    updater.start_polling()
-    updater.idle()
+    bot = Bot(token=BOT_TOKEN)
+    msg = f"🚨 Joya detectada: {token['name']}\n💵 Precio: ${token['price']}\n📈 Volumen: ${token['volume']}\n👥 Holders: {token['holders']}\n🔗 Enlace: {token['url']}"
+    bot.send_message(chat_id=CHAT_ID, text=msg)
