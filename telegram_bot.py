@@ -1,8 +1,10 @@
 # telegram_bot.py
+import os
 import logging
 from telegram import Bot, Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
 from config import TELEGRAM_TOKEN, CHAT_ID
+from db import get_token_count
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -10,42 +12,49 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class TelegramBot:
-    def __init__(self):
-        self.bot = Bot(token=TELEGRAM_TOKEN)
-        self.updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
-        self._setup_handlers()
+# Inicializar bot
+bot = Bot(token=TELEGRAM_TOKEN)
 
-    def _setup_handlers(self):
-        dispatcher = self.updater.dispatcher
-        dispatcher.add_handler(CommandHandler("start", self._start))
-        dispatcher.add_handler(CommandHandler("estado", self._status))
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text(
+        "🚀 Bot de detección de gemas Solana activado!\n"
+        "Comandos disponibles:\n"
+        "/start - Mostrar este mensaje\n"
+        "/estado - Ver estadísticas del bot"
+    )
 
-    def _start(self, update: Update, context: CallbackContext):
-        update.message.reply_text("🚀 Bot de Gemas Solana - Detección temprana de tokens prometedores")
+def status(update: Update, context: CallbackContext):
+    count = get_token_count()
+    update.message.reply_text(
+        f'📊 Estado actual:\n'
+        f'• Tokens detectados: {count}\n'
+        f'• Último escaneo: hace pocos segundos'
+    )
 
-    def _status(self, update: Update, context: CallbackContext):
-        from db import get_token_count
-        count = get_token_count()
-        update.message.reply_text(f'📊 Tokens detectados: {count}')
-
-    def send_alert(self, token_data):
+def send_alert(token_data):
+    try:
         message = (
-            f"🚀 Nuevo token detectado!\n\n"
-            f"Nombre: {token_data['name']}\n"
-            f"Precio: ${token_data['price']:.8f}\n"
-            f"Volumen 24h: ${token_data['volume']:,.2f}\n"
-            f"Transacciones: {token_data['tx_count']}\n"
-            f"Enlace: {token_data['url']}"
+            f"🚀 *Nuevo token detectado!*\n\n"
+            f"*Nombre:* `{token_data['name']}`\n"
+            f"*Precio:* ${token_data['price']:.8f}\n"
+            f"*Volumen 24h:* ${token_data['volume']:,.2f}\n"
+            f"*Transacciones (24h):* {token_data['tx_count']}\n"
+            f"[Ver en Dexscreener]({token_data['url']})"
         )
-        self.bot.send_message(
+        bot.send_message(
             chat_id=CHAT_ID,
             text=message,
-            parse_mode='Markdown'
+            parse_mode='Markdown',
+            disable_web_page_preview=True
         )
+    except Exception as e:
+        logger.error(f"Error al enviar alerta: {e}")
 
-    def run(self):
-        self.updater.start_polling()
-        self.updater.idle()
-
-telegram_bot = TelegramBot()
+def start_bot():
+    updater = Updater(token=TELEGRAM_TOKEN, use_context=True)
+    dispatcher = updater.dispatcher
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CommandHandler("estado", status))
+    logger.info("Bot de Telegram inicializado")
+    updater.start_polling()
+    updater.idle()
