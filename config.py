@@ -8,5 +8,5 @@ if not TELEGRAM_TOKEN:
 if not CHAT_ID:
     raise ValueError("❌ CHAT_ID no está configurado")
 
-DEXSCREENER_API_URL = "https://api.dexscreener.com/latest/dex/pairs/solana"
+DEXSCREENER_API_URL = "https://api.dexscreener.com/latest/dex/pairs"
 SCAN_INTERVAL = 30
