@@ -2,7 +2,7 @@ import asyncio
 import os
 from telegram import Update, Bot
 from telegram.ext import Application, CommandHandler, ContextTypes
-from db import get_token_count
+from db import contar_tokens
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = int(os.getenv("CHAT_ID"))
@@ -13,7 +13,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def estado(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id == CHAT_ID:
-        count = get_token_count()
+        count = contar_tokens()
         await context.bot.send_message(chat_id=CHAT_ID, text=f"📊 Tokens guardados en la base de datos: {count}")
 
 async def run_bot_async():
