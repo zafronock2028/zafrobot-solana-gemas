@@ -1,11 +1,7 @@
-# main.py
-import threading
-import logging
 from telegram_bot import start_bot
 from pump_scanner import start_scanner
+import threading
 
-logging.basicConfig(level=logging.INFO)
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     threading.Thread(target=start_bot).start()
-    threading.Thread(target=start_scanner).start()
+    start_scanner()
