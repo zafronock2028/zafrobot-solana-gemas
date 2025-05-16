@@ -1,4 +1,3 @@
-# telegram_bot.py
 import asyncio
 import os
 from telegram import Update, Bot
@@ -36,14 +35,16 @@ async def run_bot_async():
 def run_bot():
     asyncio.run(run_bot_async())
 
-def notificar_gema(token):
+def send_alert(token):
     bot = Bot(token=BOT_TOKEN)
-    mensaje = (
-        f"🚨 Joya detectada:\n"
-        f"🪙 Nombre: {token['name']}\n"
-        f"💰 Precio: ${token['price']:.8f}\n"
-        f"📊 Volumen: ${token['volume']}\n"
+    msg = (
+        f"🚨 Joya detectada: {token['name']}\n"
+        f"💵 Precio: ${token['price']}\n"
+        f"📈 Volumen: ${token['volume']}\n"
         f"👥 Holders: {token['holders']}\n"
-        f"🔗 Link: {token['url']}"
+        f"🔗 Enlace: {token['url']}"
     )
-    bot.send_message(chat_id=CHAT_ID, text=mensaje)
+    try:
+        bot.send_message(chat_id=CHAT_ID, text=msg)
+    except Exception as e:
+        print(f"[❌] Error enviando mensaje a Telegram: {e}")
