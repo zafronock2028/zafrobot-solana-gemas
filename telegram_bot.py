@@ -1,31 +1,23 @@
-# telegram_bot.py
-import os
-import logging
 from telegram import Bot, Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from config import TELEGRAM_TOKEN, CHAT_ID
 from db import get_token_count
+import logging
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class TelegramBot:
     def __init__(self):
         self.bot = Bot(token=TELEGRAM_TOKEN)
         self.app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-        self._setup_handlers()
-        logger.info("Bot de Telegram inicializado")
-
-    def _setup_handlers(self):
         self.app.add_handler(CommandHandler("start", self._start))
         self.app.add_handler(CommandHandler("estado", self._status))
+        logger.info("Bot de Telegram inicializado")
 
     async def _start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
-            "🚀 Bot activo\nComandos:\n/start - Bienvenida\n/estado - Ver tokens guardados"
+            "🚀 Bot activo\nComandos:\n/start - Bienvenida\n/estado - Tokens detectados"
         )
 
     async def _status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -56,5 +48,4 @@ class TelegramBot:
     def run(self):
         self.app.run_polling()
 
-# Instancia lista para importar
 telegram_bot = TelegramBot()
