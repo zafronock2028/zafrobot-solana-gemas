@@ -4,7 +4,7 @@ import time
 from config import DEXSCREENER_API_URL
 
 def scan_tokens():
-    """Consulta Dexscreener y aplica filtros pro a los tokens"""
+    """Consulta Dexscreener y aplica filtros a los tokens"""
     try:
         response = requests.get(DEXSCREENER_API_URL)
         response.raise_for_status()
@@ -14,38 +14,37 @@ def scan_tokens():
         return []
 
 def _filter_tokens(data):
-    """Filtra tokens tipo gema en Solana con lógica avanzada"""
+    """Filtra los tokens según criterios predefinidos"""
     current_time = int(time.time() * 1000)
     valid_tokens = []
 
     for pair in data.get('pairs', []):
+        # Filtrar solo tokens de Solana
         if pair.get('chainId') != 'solana':
             continue
 
-        age_ms = current_time - pair.get('pairCreatedAt', 0)
-        if age_ms > 60 * 60 * 1000:  # Máximo 60 minutos de creados
+        # Verificar antigüedad del token (menos de 3 días)
+        pair_created_at = pair.get('pairCreatedAt', 0)
+        if (current_time - pair_created_at) > 3 * 24 * 60 * 60 * 1000:
             continue
 
+        # Volumen máximo permitido
         volume = float(pair.get('volume', {}).get('h24', 0))
-        if not (5000 <= volume <= 100000):  # Volumen entre $5K y $100K
+        if volume >= 1_000_000:
             continue
 
+        # Mínimo de transacciones
         txns = pair.get('txns', {}).get('h24', {})
         tx_count = txns.get('buys', 0) + txns.get('sells', 0)
-        if tx_count < 15:
+        if tx_count < 5000:
             continue
 
-        base = pair.get('baseToken', {})
-        name = base.get('name', 'Unknown')
-        url = pair.get('url', '')
-        price = float(pair.get('priceUsd', 0))
-
         token = {
-            'name': name,
-            'price': price,
+            'name': pair.get('baseToken', {}).get('name', 'Unknown'),
+            'price': float(pair.get('priceUsd', 0)),
             'volume': volume,
             'tx_count': tx_count,
-            'url': url
+            'url': pair.get('url', '')
         }
 
         valid_tokens.append(token)
