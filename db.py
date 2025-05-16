@@ -1,39 +1,56 @@
 # db.py
 import sqlite3
 
+DB_NAME = 'tokens.db'
+
 def create_table():
-    conn = sqlite3.connect('tokens.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS tokens (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT,
-        price REAL,
-        volume REAL,
-        tx_count INTEGER,
-        url TEXT UNIQUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )''')
-    conn.commit()
-    conn.close()
-
-def insert_token(token):
-    conn = sqlite3.connect('tokens.db')
-    c = conn.cursor()
+    """Crea la tabla de tokens si no existe."""
     try:
-        c.execute('''INSERT OR IGNORE INTO tokens 
-                  (name, price, volume, tx_count, url)
-                  VALUES (?, ?, ?, ?, ?)''',
-                  (token['name'], token['price'], 
-                   token['volume'], token['tx_count'], token['url']))
-        conn.commit()
-        return c.rowcount > 0
-    finally:
-        conn.close()
+        with sqlite3.connect(DB_NAME) as conn:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS tokens (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT,
+                    price REAL,
+                    volume REAL,
+                    tx_count INTEGER,
+                    url TEXT UNIQUE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.commit()
+    except Exception as e:
+        print(f"[❌] Error al crear la tabla: {e}")
 
-def get_token_count():
-    conn = sqlite3.connect('tokens.db')
-    c = conn.cursor()
-    c.execute('SELECT COUNT(*) FROM tokens')
-    count = c.fetchone()[0]
-    conn.close()
-    return count
+def insert_token(token: dict) -> bool:
+    """Intenta insertar un token. Retorna True si fue insertado, False si ya existía."""
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT OR IGNORE INTO tokens (name, price, volume, tx_count, url)
+                VALUES (?, ?, ?, ?, ?)
+            ''', (
+                token['name'],
+                token['price'],
+                token['volume'],
+                token['tx_count'],
+                token['url']
+            ))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        print(f"[❌] Error al insertar token: {e}")
+        return False
+
+def get_token_count() -> int:
+    """Retorna la cantidad total de tokens almacenados."""
+    try:
+        with sqlite3.connect(DB_NAME) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM tokens')
+            count = cursor.fetchone()[0]
+            return count
+    except Exception as e:
+        print(f"[❌] Error al contar tokens: {e}")
+        return 0
