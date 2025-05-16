@@ -2,52 +2,59 @@ import asyncio
 import websockets
 import json
 import time
-from config import MIN_LIQUIDITY, MAX_LIQUIDITY, MIN_VOLUME, MIN_HOLDERS, MAX_AGE_MINUTES
-from db import save_token
-from telegram_bot import send_alert
+from utils import obtener_score_rugcheck
+from db import guardar_token
+from telegram_bot import notificar_gema
 
 async def start_scanner():
     uri = "wss://pumpportal.fun/api/data"
-
     async with websockets.connect(uri) as websocket:
         await websocket.send(json.dumps({"method": "subscribeNewToken"}))
 
-        print("[LOG] Suscrito a Pump.fun")
+        print("[⏳] Esperando nuevos tokens...")
 
         async for message in websocket:
-            try:
-                data = json.loads(message)
+            data = json.loads(message)
 
-                if data.get("method") != "newToken":
-                    continue
+            if data.get("method") != "newToken":
+                continue
 
-                token = data.get("data", {})
-                liquidity = token.get("liquidity", 0)
-                volume = token.get("volume", 0)
-                holders = token.get("holders", 0)
-                created_at = token.get("createdAt", int(time.time()))
-                age_minutes = (int(time.time()) - int(created_at)) / 60
+            token = data.get("data", {})
+            name = token.get("name", "Unknown")
+            address = token.get("address")
+            liquidity = float(token.get("liquidity", 0))
+            volume = float(token.get("volume", 0))
+            holders = int(token.get("holders", 0))
+            timestamp = int(token.get("created_at", 0))
+            age_minutes = (int(time.time()) - timestamp) / 60
 
-                if not (MIN_LIQUIDITY <= liquidity <= MAX_LIQUIDITY):
-                    continue
-                if volume < MIN_VOLUME:
-                    continue
-                if holders < MIN_HOLDERS:
-                    continue
-                if age_minutes > MAX_AGE_MINUTES:
-                    continue
+            print(f"[+] Detectado: {name} | LP: {liquidity} | Vol: {volume} | Holders: {holders} | Edad: {int(age_minutes)} min")
 
-                token_data = {
-                    "name": token.get("name", "Unknown"),
-                    "price": token.get("price", 0),
-                    "volume": volume,
-                    "holders": holders,
-                    "url": f"https://pump.fun/{token.get('id')}"
-                }
+            # Filtros suaves para pruebas
+            if liquidity < 500:
+                continue
+            if volume < 5000:
+                continue
+            if holders < 15:
+                continue
+            if age_minutes > 60:
+                continue
 
-                save_token(token_data)
-                send_alert(token_data)
+            # Verificación RugCheck
+            score = await obtener_score_rugcheck(address)
+            if score < 50:
+                print(f"[⚠️] Rechazado por score bajo ({score})")
+                continue
 
-                print(f"[JOYITA] {token_data['name']} - Holders: {holders} - ${token_data['price']}")
-            except Exception as e:
-                print(f"[ERROR] {e}")
+            token_info = {
+                "name": name,
+                "address": address,
+                "liquidity": liquidity,
+                "volume": volume,
+                "holders": holders,
+                "score": score
+            }
+
+            # Guardar y notificar
+            guardar_token(token_info)
+            await notificar_gema(token_info)
