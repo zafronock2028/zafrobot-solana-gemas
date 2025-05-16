@@ -1,50 +1,46 @@
-# pump_scanner.py
 import json
-import logging
-import websockets
 import asyncio
-import time
+import websockets
+from config import PUMPFUN_WS_URL
 from telegram_bot import send_alert
-from db import save_token_if_new
+from db import save_token
 
-PUMP_WS_URL = "wss://pump.fun/ws"
-
-logging.basicConfig(level=logging.INFO)
-
-def token_filter(data):
+def is_valid_token(data):
     try:
+        price = float(data.get("priceUsd", 0))
+        volume = float(data.get("volume24h", 0))
+        tx_count = int(data.get("txCount", 0))
+        age = int(data.get("age", 0))
+        holders = int(data.get("holders", 0))
+        market_cap = float(data.get("marketCap", 0))
         if (
-            data.get("liquidity") and 2000 <= data["liquidity"] <= 75000 and
-            data.get("volume") and data["volume"] >= 15000 and
-            data.get("holders") and data["holders"] >= 50 and
-            data.get("created_at_ms") and
-            (int(time.time() * 1000) - data["created_at_ms"]) <= 35 * 60 * 1000
+            2000 <= volume <= 75000 and
+            50 <= holders and
+            age <= 2100 and
+            3000 <= market_cap <= 80000
         ):
             return True
-    except Exception:
         return False
-    return False
+    except:
+        return False
 
-async def listen():
-    async with websockets.connect(PUMP_WS_URL) as ws:
-        logging.info("Conectado al WebSocket de Pump.fun")
-        async for message in ws:
-            try:
-                data = json.loads(message)
-                if token_filter(data):
-                    url = f"https://pump.fun/{data['token_address']}"
-                    token_info = {
-                        "name": data.get("name", "Unknown"),
-                        "price": float(data.get("price", 0)),
-                        "volume": float(data.get("volume", 0)),
-                        "tx_count": data.get("tx_count", 0),
-                        "url": url
-                    }
-                    if save_token_if_new(token_info):
-                        logging.info(f"Token válido detectado: {token_info['name']}")
-                        send_alert(token_info)
-            except Exception as e:
-                logging.warning(f"Error procesando mensaje: {e}")
+async def scan_tokens():
+    async with websockets.connect(PUMPFUN_WS_URL) as ws:
+        while True:
+            msg = await ws.recv()
+            data = json.loads(msg)
+
+            if isinstance(data, dict) and data.get("type") == "new_token":
+                token = data.get("token", {})
+                if is_valid_token(token):
+                    save_token(token)
+                    send_alert({
+                        "name": token.get("name", "Unknown"),
+                        "price": float(token.get("priceUsd", 0)),
+                        "volume": float(token.get("volume24h", 0)),
+                        "tx_count": int(token.get("txCount", 0)),
+                        "url": f"https://dexscreener.com/solana/{token.get('address')}"
+                    })
 
 def start_scanner():
-    asyncio.run(listen())
+    asyncio.run(scan_tokens())
