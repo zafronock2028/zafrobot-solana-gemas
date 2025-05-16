@@ -1,26 +1,41 @@
-# db.py
-import json
-import os
+import sqlite3
 
-DB_FILE = "tokens.json"
+def init_db():
+    conn = sqlite3.connect("tokens.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            price REAL,
+            volume REAL,
+            tx_count INTEGER,
+            url TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
 
-def load_tokens():
-    if os.path.exists(DB_FILE):
-        with open(DB_FILE, "r") as f:
-            return json.load(f)
-    return []
-
-def save_tokens(tokens):
-    with open(DB_FILE, "w") as f:
-        json.dump(tokens, f, indent=2)
+def save_token(token):
+    conn = sqlite3.connect("tokens.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO tokens (name, price, volume, tx_count, url)
+        VALUES (?, ?, ?, ?, ?)
+    """, (
+        token["name"],
+        token["price"],
+        token["volume"],
+        token["tx_count"],
+        token["url"]
+    ))
+    conn.commit()
+    conn.close()
 
 def get_token_count():
-    return len(load_tokens())
-
-def save_token_if_new(token):
-    tokens = load_tokens()
-    if not any(t["url"] == token["url"] for t in tokens):
-        tokens.append(token)
-        save_tokens(tokens)
-        return True
-    return False
+    conn = sqlite3.connect("tokens.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM tokens")
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
